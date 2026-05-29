@@ -1,0 +1,1164 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>情侣飞行棋</title>
+<style>
+:root {
+  --cell: min(80px, calc((100vw - 48px) / 6.4));
+  --gap: min(3px, 0.4vw);
+  --bpad: min(10px, 1.5vw);
+  --piece: calc(var(--cell) * 0.36);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Microsoft YaHei', 'PingFang SC', sans-serif;
+  background: #1a1a2e;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  -webkit-tap-highlight-color: transparent;
+}
+
+#title-screen {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+  position: relative;
+  overflow: hidden;
+}
+
+#title-screen::before {
+  content: '';
+  position: absolute;
+  width: 200%;
+  height: 200%;
+  top: -50%;
+  left: -50%;
+  background: radial-gradient(ellipse at 30% 50%, rgba(255, 100, 100, 0.08) 0%, transparent 50%),
+              radial-gradient(ellipse at 70% 50%, rgba(100, 100, 255, 0.08) 0%, transparent 50%);
+  animation: bgPulse 8s ease-in-out infinite;
+}
+
+@keyframes bgPulse {
+  0%, 100% { transform: scale(1) rotate(0deg); }
+  50% { transform: scale(1.1) rotate(3deg); }
+}
+
+.title-text {
+  font-size: clamp(36px, 12vw, 64px);
+  font-weight: 900;
+  background: linear-gradient(135deg, #ff6b6b, #ffd93d, #6bcb77, #4d96ff);
+  background-size: 300% 300%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: gradientShift 4s ease infinite;
+  margin-bottom: 12px;
+  position: relative;
+  z-index: 1;
+  letter-spacing: 6px;
+}
+
+@keyframes gradientShift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.title-sub {
+  font-size: clamp(12px, 3vw, 18px);
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 48px;
+  position: relative;
+  z-index: 1;
+  letter-spacing: 4px;
+}
+
+.start-btn {
+  position: relative;
+  z-index: 1;
+  padding: clamp(14px, 3vw, 18px) clamp(48px, 12vw, 72px);
+  font-size: clamp(16px, 4vw, 22px);
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 8px 32px rgba(255, 107, 107, 0.4);
+  letter-spacing: 4px;
+}
+
+.start-btn:hover { transform: translateY(-3px); box-shadow: 0 12px 40px rgba(255, 107, 107, 0.6); }
+.start-btn:active { transform: translateY(0); }
+
+#game-screen {
+  display: none;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: linear-gradient(180deg, #16213e, #1a1a2e);
+  padding: clamp(8px, 2vw, 20px);
+}
+
+.game-header {
+  text-align: center;
+  padding: 6px 0 10px;
+}
+
+.game-header h1 {
+  font-size: clamp(18px, 4vw, 28px);
+  color: #fff;
+  letter-spacing: 4px;
+}
+
+.game-info {
+  display: flex;
+  justify-content: center;
+  gap: clamp(12px, 3vw, 40px);
+  margin-top: 6px;
+}
+
+.player-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px clamp(10px, 2vw, 20px);
+  border-radius: 25px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 2px solid transparent;
+  transition: all 0.3s ease;
+}
+
+.player-info.active-red {
+  border-color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+  box-shadow: 0 0 20px rgba(255, 107, 107, 0.3);
+}
+
+.player-info.active-blue {
+  border-color: #4d96ff;
+  background: rgba(77, 150, 255, 0.1);
+  box-shadow: 0 0 20px rgba(77, 150, 255, 0.3);
+}
+
+.player-dot {
+  width: clamp(14px, 3vw, 20px);
+  height: clamp(14px, 3vw, 20px);
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.player-dot.red { background: #ff6b6b; box-shadow: 0 0 10px rgba(255, 107, 107, 0.5); }
+.player-dot.blue { background: #4d96ff; box-shadow: 0 0 10px rgba(77, 150, 255, 0.5); }
+
+.player-name {
+  color: #fff;
+  font-size: clamp(12px, 2.5vw, 16px);
+  font-weight: 600;
+}
+
+.player-pos {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: clamp(10px, 2vw, 14px);
+}
+
+.board-container {
+  display: flex;
+  justify-content: center;
+  margin: clamp(6px, 1.5vw, 16px) auto;
+  overflow: visible;
+}
+
+.board {
+  display: grid;
+  grid-template-columns: repeat(6, var(--cell));
+  grid-template-rows: repeat(7, var(--cell));
+  gap: var(--gap);
+  padding: var(--bpad);
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+}
+
+.cell {
+  width: var(--cell);
+  height: var(--cell);
+  border-radius: calc(var(--cell) * 0.14);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  transition: transform 0.2s ease;
+  cursor: default;
+  overflow: hidden;
+}
+
+.cell-num {
+  font-size: clamp(8px, 1.8vw, 13px);
+  font-weight: 700;
+  opacity: 0.85;
+  position: absolute;
+  top: 2px;
+  left: 4px;
+}
+
+.cell-text {
+  font-size: clamp(7px, 1.4vw, 10px);
+  text-align: center;
+  padding: 0 3px;
+  line-height: 1.2;
+  max-height: calc(var(--cell) * 0.7);
+  overflow: hidden;
+  margin-top: calc(var(--cell) * 0.18);
+  opacity: 0.9;
+}
+
+@media (max-width: 420px) {
+  .cell-text { display: none; }
+  .cell-num { font-size: clamp(8px, 2.2vw, 11px); }
+}
+
+.cell.section-1 {
+  background: linear-gradient(135deg, #a855f7, #c084fc);
+  color: #faf5ff;
+}
+.cell.section-2 {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+  color: #faf5ff;
+}
+.cell.section-3 {
+  background: linear-gradient(135deg, #581c87, #7c3aed);
+  color: #f3e8ff;
+}
+
+.cell.cell-start {
+  background: linear-gradient(135deg, #059669, #34d399);
+  color: #d1fae5;
+}
+.cell.cell-end {
+  background: linear-gradient(135deg, #d97706, #fbbf24);
+  color: #fefce8;
+}
+
+.cell-label {
+  font-size: clamp(10px, 2.2vw, 16px);
+  font-weight: 800;
+  letter-spacing: 2px;
+}
+
+.cell:hover {
+  transform: scale(1.05);
+  z-index: 5;
+}
+
+.pieces-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.piece {
+  position: absolute;
+  width: var(--piece);
+  height: var(--piece);
+  border-radius: 50%;
+  transition: left 0.4s cubic-bezier(0.34, 1.56, 0.64, 1),
+              top 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: clamp(9px, 2vw, 13px);
+  font-weight: 900;
+  color: #fff;
+}
+
+.piece.red {
+  background: radial-gradient(circle at 30% 30%, #ff8a8a, #ff4444);
+  box-shadow: 0 3px 12px rgba(255, 68, 68, 0.6), inset 0 -2px 4px rgba(0,0,0,0.2);
+  border: 2px solid #ffaaaa;
+}
+
+.piece.blue {
+  background: radial-gradient(circle at 30% 30%, #7ab8ff, #2266ff);
+  box-shadow: 0 3px 12px rgba(34, 102, 255, 0.6), inset 0 -2px 4px rgba(0,0,0,0.2);
+  border: 2px solid #aaccff;
+}
+
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: clamp(8px, 2vw, 20px);
+  gap: 12px;
+}
+
+.dice-area {
+  display: flex;
+  align-items: center;
+  gap: clamp(12px, 3vw, 24px);
+}
+
+.dice {
+  width: clamp(48px, 10vw, 72px);
+  height: clamp(48px, 10vw, 72px);
+  background: linear-gradient(145deg, #ffffff, #e6e6e6);
+  border-radius: 14px;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  padding: clamp(6px, 1.2vw, 10px);
+  gap: 2px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255,255,255,0.8);
+  transition: transform 0.1s ease;
+  flex-shrink: 0;
+}
+
+.dice.rolling {
+  animation: diceRoll 0.6s ease;
+}
+
+@keyframes diceRoll {
+  0% { transform: rotateX(0) rotateZ(0) scale(1); }
+  20% { transform: rotateX(180deg) rotateZ(90deg) scale(0.9); }
+  40% { transform: rotateX(360deg) rotateZ(180deg) scale(1.1); }
+  60% { transform: rotateX(540deg) rotateZ(270deg) scale(0.95); }
+  80% { transform: rotateX(680deg) rotateZ(340deg) scale(1.05); }
+  100% { transform: rotateX(720deg) rotateZ(360deg) scale(1); }
+}
+
+.dot {
+  width: clamp(7px, 1.6vw, 12px);
+  height: clamp(7px, 1.6vw, 12px);
+  background: #333;
+  border-radius: 50%;
+  align-self: center;
+  justify-self: center;
+  display: none;
+}
+
+.dot.show { display: block; }
+
+.roll-btn {
+  padding: clamp(10px, 2vw, 14px) clamp(24px, 5vw, 40px);
+  font-size: clamp(14px, 3vw, 18px);
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #6c5ce7, #a855f7);
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 24px rgba(108, 92, 231, 0.4);
+  letter-spacing: 2px;
+  white-space: nowrap;
+}
+
+.roll-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(108, 92, 231, 0.6);
+}
+
+.roll-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.turn-indicator {
+  font-size: clamp(12px, 2.5vw, 16px);
+  font-weight: 600;
+  padding: 6px clamp(12px, 3vw, 24px);
+  border-radius: 20px;
+  transition: all 0.3s ease;
+}
+
+.turn-indicator.red-turn {
+  color: #ff6b6b;
+  background: rgba(255, 107, 107, 0.1);
+}
+
+.turn-indicator.blue-turn {
+  color: #4d96ff;
+  background: rgba(77, 150, 255, 0.1);
+}
+
+.modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.show {
+  display: flex;
+}
+
+.modal {
+  background: linear-gradient(145deg, #2a2a4a, #1e1e3a);
+  border-radius: 20px;
+  padding: clamp(24px, 5vw, 36px) clamp(24px, 5vw, 40px);
+  max-width: 420px;
+  width: 90%;
+  text-align: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  animation: modalIn 0.3s ease;
+}
+
+@keyframes modalIn {
+  from { transform: scale(0.8); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-cell-num {
+  font-size: clamp(12px, 2.5vw, 14px);
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 8px;
+}
+
+.modal-content {
+  font-size: clamp(16px, 3.5vw, 20px);
+  color: #fff;
+  line-height: 1.6;
+  margin-bottom: 24px;
+  padding: 14px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+}
+
+.modal-player {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.modal-btn {
+  padding: 10px 40px;
+  font-size: clamp(14px, 3vw, 16px);
+  font-weight: 600;
+  color: #fff;
+  background: linear-gradient(135deg, #6c5ce7, #a855f7);
+  border: none;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 2px;
+}
+
+.modal-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(108, 92, 231, 0.5);
+}
+
+.victory-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.8);
+  backdrop-filter: blur(8px);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+}
+
+.victory-overlay.show {
+  display: flex;
+}
+
+.victory-box {
+  text-align: center;
+  animation: victoryIn 0.5s ease;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+@keyframes victoryIn {
+  from { transform: scale(0.5) rotate(-10deg); opacity: 0; }
+  to { transform: scale(1) rotate(0deg); opacity: 1; }
+}
+
+.victory-title {
+  font-size: clamp(36px, 10vw, 56px);
+  font-weight: 900;
+  margin-bottom: 12px;
+  letter-spacing: 6px;
+}
+
+.victory-title.red-win {
+  background: linear-gradient(135deg, #ff6b6b, #ffd93d);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.victory-title.blue-win {
+  background: linear-gradient(135deg, #4d96ff, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.victory-sub {
+  font-size: clamp(14px, 3vw, 20px);
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 32px;
+}
+
+.victory-btn {
+  padding: clamp(12px, 2.5vw, 16px) clamp(36px, 8vw, 56px);
+  font-size: clamp(14px, 3vw, 18px);
+  font-weight: 700;
+  color: #fff;
+  background: linear-gradient(135deg, #ff6b6b, #ee5a24);
+  border: none;
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 6px 24px rgba(255, 107, 107, 0.4);
+  letter-spacing: 2px;
+  width: 100%;
+  max-width: 240px;
+}
+
+.victory-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(255, 107, 107, 0.6);
+}
+
+.history-btn {
+  margin-top: 12px;
+  padding: clamp(12px, 2.5vw, 16px) clamp(36px, 8vw, 56px);
+  font-size: clamp(14px, 3vw, 18px);
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 30px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  letter-spacing: 2px;
+  width: 100%;
+  max-width: 240px;
+}
+
+.history-btn:hover {
+  background: rgba(255, 255, 255, 0.18);
+  transform: translateY(-2px);
+}
+
+.history-modal {
+  max-width: 460px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.history-title {
+  font-size: clamp(18px, 4vw, 24px);
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 16px;
+  letter-spacing: 2px;
+}
+
+.history-list {
+  flex: 1;
+  overflow-y: auto;
+  margin-bottom: 20px;
+  padding-right: 4px;
+}
+
+.history-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.history-list::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 2px;
+}
+
+.history-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 2px;
+}
+
+.history-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 10px;
+  margin-bottom: 8px;
+}
+
+.history-item-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-top: 4px;
+  flex-shrink: 0;
+}
+
+.history-item-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.history-item-header {
+  font-size: clamp(11px, 2vw, 13px);
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 3px;
+}
+
+.history-item-text {
+  font-size: clamp(13px, 2.5vw, 15px);
+  color: #fff;
+  line-height: 1.5;
+}
+
+.history-empty {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.4);
+  padding: 30px 0;
+  font-size: 14px;
+}
+
+.confetti {
+  position: fixed;
+  top: -10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  z-index: 201;
+  animation: confettiFall linear forwards;
+}
+
+@keyframes confettiFall {
+  to {
+    top: 110vh;
+    transform: rotate(720deg);
+  }
+}
+</style>
+</head>
+<body>
+
+<div id="title-screen">
+  <div class="title-text">情侣飞行棋</div>
+  <div class="title-sub">BOARD ADVENTURE</div>
+  <button class="start-btn" onclick="startGame()">开始游戏</button>
+</div>
+
+<div id="game-screen">
+  <div class="game-header">
+    <h1 style="margin: 30px;">情侣飞行棋</h1>
+    <div class="game-info">
+      <div class="player-info" id="red-info">
+        <div class="player-dot red"></div>
+        <span class="player-name" id="red-name" onclick="toggleDebuff('red')">红方</span>
+        <span class="player-pos" id="red-pos">起点</span>
+      </div>
+      <div class="player-info" id="blue-info">
+        <div class="player-dot blue"></div>
+        <span class="player-name" id="blue-name" onclick="toggleDebuff('blue')">蓝方</span>
+        <span class="player-pos" id="blue-pos">起点</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="board-container">
+    <div class="board" id="board"></div>
+  </div>
+
+  <div class="controls">
+    <div class="turn-indicator" id="turn-indicator">红方掷骰子</div>
+    <div class="dice-area">
+      <div class="dice" id="dice">
+        <div class="dot" id="d1"></div>
+        <div class="dot" id="d2"></div>
+        <div class="dot" id="d3"></div>
+        <div class="dot" id="d4"></div>
+        <div class="dot" id="d5"></div>
+        <div class="dot" id="d6"></div>
+        <div class="dot" id="d7"></div>
+        <div class="dot" id="d8"></div>
+        <div class="dot" id="d9"></div>
+      </div>
+      <button class="roll-btn" id="roll-btn" onclick="rollDice()">掷骰子</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal">
+    <div class="modal-cell-num" id="modal-cell-num"></div>
+    <div class="modal-content" id="modal-content"></div>
+    <button class="modal-btn" onclick="closeModal()">确定</button>
+  </div>
+</div>
+
+<div class="victory-overlay" id="victory-overlay">
+  <div class="victory-box">
+    <div class="victory-title" id="victory-title"></div>
+    <div class="victory-sub" id="victory-sub"></div>
+    <button class="victory-btn" onclick="restartGame()">再来一局</button>
+    <button class="history-btn" onclick="showHistory()">本局记录</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="history-overlay" style="z-index:210">
+  <div class="modal history-modal">
+    <div class="history-title">本局记录</div>
+    <div class="history-list" id="history-list"></div>
+    <button class="modal-btn" onclick="closeHistory()">关闭</button>
+  </div>
+</div>
+
+<script>
+const COLS = 6;
+const TOTAL_CELLS = 40;
+const END_POS = TOTAL_CELLS + 1;
+
+const GAME_DATA = {
+  "g1": [
+    "捡到一枚金币，心情美美哒！",
+    "踩到香蕉皮，滑了一跤！",
+    "遇到好心人，送你一瓶水。",
+    "路边发现一朵漂亮的花。",
+    "被小猫蹭了蹭，好运加一！",
+    "突然下起小雨，赶紧躲一躲。",
+    "发现一条捷径，精神振奋！",
+    "闻到烤红薯的香味，肚子咕咕叫。",
+    "捡到一张藏宝图碎片。",
+    "遇到一只会说话的鹦鹉，聊了几句。"
+  ],
+  "g2": [
+    "发现一座小木屋，进去歇歇脚。",
+    "被蜜蜂追着跑了好远！",
+    "遇到一条小河，需要绕路而行。",
+    "树上掉下一个苹果，正好解渴。",
+    "发现一个神秘的宝箱，里面是巧克力！",
+    "被乌云笼罩，前路迷茫……",
+    "遇到一位老者，指明了方向。",
+    "踩到泥坑，鞋子脏了。",
+    "发现一片美丽的花海，心情大好！",
+    "被松鼠偷走了零食！",
+    "遇到一个十字路口，选了左边。",
+    "发现一封漂流瓶，里面写着祝福。",
+    "被藤蔓绊了一下，差点摔倒。",
+    "遇到一群蝴蝶，美不胜收。",
+    "发现一个温泉，泡了个舒服的澡！",
+    "被一阵大风吹退了几步。",
+    "遇到一只迷路的小狗，帮它找到了家。",
+    "发现一棵结满果实的大树。",
+    "被蚊子咬了好几个包！",
+    "遇到一个卖冰淇淋的小摊，太幸福了！"
+  ],
+  "g3": [
+    "发现一座古老的石桥，上面刻着神秘符文。",
+    "被一阵浓雾包围，看不清前路。",
+    "遇到一位旅行者，分享了宝贵经验。",
+    "发现一个隐藏的山洞，里面有壁画！",
+    "被山间的溪水冲走了帽子。",
+    "遇到一只雄鹰在头顶盘旋，感到振奋！",
+    "发现一片蘑菇林，色彩斑斓。",
+    "被突如其来的雷声吓了一跳！",
+    "发现终点就在眼前，全力冲刺！",
+    "到达传说中的圣地，光芒万丈！"
+  ]
+};
+
+let cellContents = [];
+let gameHistory = [];
+let redDebuff = false;
+let blueDebuff = false;
+let redPos = 0;
+let bluePos = 0;
+let currentTurn = 'red';
+let isRolling = false;
+let gameOver = false;
+
+function toggleDebuff(side) {
+  if (side === 'red') redDebuff = !redDebuff;
+  else blueDebuff = !blueDebuff;
+  updateTurnUI();
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function getPathGridPos(pathPos) {
+  const rowIdx = Math.floor(pathPos / COLS);
+  const colInRow = pathPos % COLS;
+  const gridRow = 7 - rowIdx;
+  const gridCol = rowIdx % 2 === 0 ? (colInRow + 1) : (COLS - colInRow);
+  return { row: gridRow, col: gridCol };
+}
+
+function getSection(cellNum) {
+  if (cellNum <= 10) return 1;
+  if (cellNum <= 30) return 2;
+  return 3;
+}
+
+function generateBoard() {
+  const g1 = shuffle(GAME_DATA.g1);
+  const g2 = shuffle(GAME_DATA.g2);
+  const g3 = shuffle(GAME_DATA.g3);
+  cellContents = [...g1, ...g2, ...g3];
+}
+
+function renderBoard() {
+  const board = document.getElementById('board');
+  board.innerHTML = '';
+
+  const startPos = getPathGridPos(0);
+  const startCell = document.createElement('div');
+  startCell.className = 'cell cell-start';
+  startCell.id = 'cell-start';
+  startCell.style.gridRow = startPos.row;
+  startCell.style.gridColumn = startPos.col;
+  startCell.innerHTML = '<span class="cell-label">起点</span>';
+  board.appendChild(startCell);
+
+  for (let i = 1; i <= TOTAL_CELLS; i++) {
+    const pathPos = i;
+    const pos = getPathGridPos(pathPos);
+    const section = getSection(i);
+    const cell = document.createElement('div');
+    cell.className = `cell section-${section}`;
+    cell.style.gridRow = pos.row;
+    cell.style.gridColumn = pos.col;
+    cell.id = `cell-${i}`;
+    cell.innerHTML = `<span class="cell-num">${i}</span><span class="cell-text">${cellContents[i - 1]}</span>`;
+    board.appendChild(cell);
+  }
+
+  const endPathPos = TOTAL_CELLS + 1;
+  const endPos = getPathGridPos(endPathPos);
+  const endCell = document.createElement('div');
+  endCell.className = 'cell cell-end';
+  endCell.id = 'cell-end';
+  endCell.style.gridRow = endPos.row;
+  endCell.style.gridColumn = endPos.col;
+  endCell.innerHTML = '<span class="cell-label">终点</span>';
+  board.appendChild(endCell);
+
+  const piecesLayer = document.createElement('div');
+  piecesLayer.className = 'pieces-layer';
+  piecesLayer.id = 'pieces-layer';
+  board.appendChild(piecesLayer);
+
+  const redPiece = document.createElement('div');
+  redPiece.className = 'piece red';
+  redPiece.id = 'red-piece';
+  redPiece.textContent = '红';
+  piecesLayer.appendChild(redPiece);
+
+  const bluePiece = document.createElement('div');
+  bluePiece.className = 'piece blue';
+  bluePiece.id = 'blue-piece';
+  bluePiece.textContent = '蓝';
+  piecesLayer.appendChild(bluePiece);
+
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      updatePiecePositions();
+    });
+  });
+}
+
+function getCellElement(pos) {
+  if (pos === 0) return document.getElementById('cell-start');
+  if (pos >= END_POS) return document.getElementById('cell-end');
+  return document.getElementById('cell-' + pos);
+}
+
+function updatePiecePositions() {
+  const board = document.getElementById('board');
+  if (!board) return;
+  const boardRect = board.getBoundingClientRect();
+
+  const redCell = getCellElement(redPos);
+  const blueCell = getCellElement(bluePos);
+  const redPiece = document.getElementById('red-piece');
+  const bluePiece = document.getElementById('blue-piece');
+  if (!redCell || !blueCell || !redPiece || !bluePiece) return;
+
+  const sameCell = redPos === bluePos;
+  const pw = redPiece.offsetWidth || 24;
+  const ph = redPiece.offsetHeight || 24;
+
+  function posOnCell(cellEl, offsetX) {
+    const r = cellEl.getBoundingClientRect();
+    return {
+      left: r.left + r.width / 2 - boardRect.left - pw / 2 + offsetX,
+      top: r.top + r.height / 2 - boardRect.top - ph / 2
+    };
+  }
+
+  const rp = posOnCell(redCell, sameCell ? -pw * 0.35 : 0);
+  const bp = posOnCell(blueCell, sameCell ? pw * 0.35 : 0);
+
+  redPiece.style.left = rp.left + 'px';
+  redPiece.style.top = rp.top + 'px';
+  bluePiece.style.left = bp.left + 'px';
+  bluePiece.style.top = bp.top + 'px';
+}
+
+function showDice(value) {
+  const patterns = {
+    1: [5],
+    2: [3, 7],
+    3: [3, 5, 7],
+    4: [1, 3, 7, 9],
+    5: [1, 3, 5, 7, 9],
+    6: [1, 3, 4, 6, 7, 9]
+  };
+  for (let i = 1; i <= 9; i++) {
+    document.getElementById('d' + i).classList.toggle('show', patterns[value].includes(i));
+  }
+}
+
+function getPosText(pos) {
+  if (pos === 0) return '起点';
+  if (pos >= END_POS) return '终点';
+  return `第 ${pos} 格`;
+}
+
+function updateTurnUI() {
+  const redInfo = document.getElementById('red-info');
+  const blueInfo = document.getElementById('blue-info');
+  const indicator = document.getElementById('turn-indicator');
+
+  redInfo.className = 'player-info' + (currentTurn === 'red' ? ' active-red' : '');
+  blueInfo.className = 'player-info' + (currentTurn === 'blue' ? ' active-blue' : '');
+
+  indicator.className = 'turn-indicator ' + (currentTurn === 'red' ? 'red-turn' : 'blue-turn');
+  const redLabel = redDebuff ? '红方 掷骰子' : '红方掷骰子';
+  const blueLabel = blueDebuff ? '蓝方 掷骰子' : '蓝方掷骰子';
+  indicator.textContent = currentTurn === 'red' ? redLabel : blueLabel;
+
+  document.getElementById('red-pos').textContent = getPosText(redPos);
+  document.getElementById('blue-pos').textContent = getPosText(bluePos);
+}
+
+async function rollDice() {
+  if (isRolling || gameOver) return;
+  isRolling = true;
+  document.getElementById('roll-btn').disabled = true;
+
+  const dice = document.getElementById('dice');
+  dice.classList.add('rolling');
+
+  for (let i = 1; i <= 9; i++) {
+    document.getElementById('d' + i).classList.remove('show');
+  }
+
+  await new Promise(r => setTimeout(r, 600));
+
+  const isRed = currentTurn === 'red';
+  let currentPos = isRed ? redPos : bluePos;
+  let finalValue = Math.floor(Math.random() * 4) + 1;
+  let targetPos = currentPos + finalValue;
+
+  if ((isRed && redDebuff) || (!isRed && blueDebuff)) {
+    if (targetPos === END_POS) {
+      if (finalValue <= 3) {
+        finalValue += 1;
+      } else {
+        finalValue -= 1;
+      }
+      targetPos = currentPos + finalValue;
+    }
+  }
+
+  dice.classList.remove('rolling');
+  showDice(finalValue);
+
+  await new Promise(r => setTimeout(r, 300));
+
+  if (targetPos > END_POS) {
+    for (let step = currentPos + 1; step <= END_POS; step++) {
+      if (isRed) redPos = step; else bluePos = step;
+      updatePiecePositions();
+      await new Promise(r => setTimeout(r, 180));
+    }
+    const bouncePos = END_POS - (targetPos - END_POS);
+    for (let step = END_POS - 1; step >= bouncePos; step--) {
+      if (isRed) redPos = step; else bluePos = step;
+      updatePiecePositions();
+      await new Promise(r => setTimeout(r, 180));
+    }
+    targetPos = bouncePos;
+  } else {
+    for (let step = currentPos + 1; step <= targetPos; step++) {
+      if (isRed) redPos = step; else bluePos = step;
+      updatePiecePositions();
+      await new Promise(r => setTimeout(r, 180));
+    }
+  }
+
+  updateTurnUI();
+
+  if (targetPos >= END_POS) {
+    if (isRed) redPos = END_POS; else bluePos = END_POS;
+    updatePiecePositions();
+    showVictory(currentTurn);
+    isRolling = false;
+    return;
+  }
+
+  showModal(targetPos, currentTurn);
+}
+
+function showModal(cellNum, player) {
+  const overlay = document.getElementById('modal-overlay');
+  const numEl = document.getElementById('modal-cell-num');
+  const contentEl = document.getElementById('modal-content');
+
+  const playerColor = player === 'red' ? '#ff6b6b' : '#4d96ff';
+  const playerName = player === 'red' ? '红方' : '蓝方';
+
+  numEl.innerHTML = `<span class="modal-player" style="background:${playerColor}"></span>${playerName} 到达第 ${cellNum} 格`;
+  contentEl.textContent = cellContents[cellNum - 1];
+
+  gameHistory.push({ player: playerName, color: playerColor, cellNum, text: cellContents[cellNum - 1] });
+
+  overlay.classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modal-overlay').classList.remove('show');
+  currentTurn = currentTurn === 'red' ? 'blue' : 'red';
+  updateTurnUI();
+  isRolling = false;
+  document.getElementById('roll-btn').disabled = false;
+}
+
+function showVictory(winner) {
+  gameOver = true;
+  const overlay = document.getElementById('victory-overlay');
+  const titleEl = document.getElementById('victory-title');
+  const subEl = document.getElementById('victory-sub');
+
+  const isRed = winner === 'red';
+  titleEl.textContent = isRed ? '红方胜利' : '蓝方胜利';
+  titleEl.className = 'victory-title ' + (isRed ? 'red-win' : 'blue-win');
+  subEl.textContent = isRed ? '红方率先到达终点！' : '蓝方率先到达终点！';
+
+  overlay.classList.add('show');
+  spawnConfetti();
+}
+
+function spawnConfetti() {
+  const colors = ['#ff6b6b', '#ffd93d', '#6bcb77', '#4d96ff', '#a855f7', '#ff9ff3'];
+  for (let i = 0; i < 60; i++) {
+    setTimeout(() => {
+      const c = document.createElement('div');
+      c.className = 'confetti';
+      c.style.left = Math.random() * 100 + 'vw';
+      c.style.background = colors[Math.floor(Math.random() * colors.length)];
+      c.style.width = (6 + Math.random() * 8) + 'px';
+      c.style.height = (6 + Math.random() * 8) + 'px';
+      c.style.animationDuration = (2 + Math.random() * 2) + 's';
+      c.style.animationDelay = '0s';
+      document.body.appendChild(c);
+      setTimeout(() => c.remove(), 4500);
+    }, i * 50);
+  }
+}
+
+function startGame() {
+  generateBoard();
+
+  document.getElementById('title-screen').style.display = 'none';
+  document.getElementById('game-screen').style.display = 'block';
+
+  redPos = 0;
+  bluePos = 0;
+  redDebuff = true;
+  blueDebuff = true;
+  currentTurn = 'red';
+  gameOver = false;
+  isRolling = false;
+  gameHistory = [];
+  document.getElementById('roll-btn').disabled = false;
+
+  renderBoard();
+  updateTurnUI();
+  showDice(1);
+}
+
+function restartGame() {
+  document.getElementById('victory-overlay').classList.remove('show');
+  document.getElementById('game-screen').style.display = 'none';
+  document.getElementById('title-screen').style.display = 'flex';
+}
+
+function showHistory() {
+  const list = document.getElementById('history-list');
+  if (gameHistory.length === 0) {
+    list.innerHTML = '<div class="history-empty">暂无记录</div>';
+  } else {
+    list.innerHTML = gameHistory.map((h, i) =>
+      `<div class="history-item">
+        <div class="history-item-dot" style="background:${h.color}"></div>
+        <div class="history-item-body">
+          <div class="history-item-header">${h.player} · 第 ${h.cellNum} 格</div>
+          <div class="history-item-text">${h.text}</div>
+        </div>
+      </div>`
+    ).join('');
+  }
+  document.getElementById('history-overlay').classList.add('show');
+}
+
+function closeHistory() {
+  document.getElementById('history-overlay').classList.remove('show');
+}
+
+window.addEventListener('resize', () => {
+  if (document.getElementById('game-screen').style.display !== 'none') {
+    updatePiecePositions();
+  }
+});
+</script>
+
+</body>
+</html>
